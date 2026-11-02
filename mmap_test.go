@@ -171,3 +171,66 @@ func TestAnonymousMapping(t *testing.T) {
 		t.Fatalf("failed to unmap memory for buffer: %v", err)
 	}
 }
+
+func TestMapRegionWholeFileFromOffset(t *testing.T) {
+	// Windows requires offsets aligned to the 64KB allocation granularity.
+	const pageSize = 65536
+	path := filepath.Join(t.TempDir(), "offset")
+	data := make([]byte, 2*pageSize+10)
+	data[pageSize] = 'A'
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+
+	m, err := MapRegion(f, -1, RDONLY, 0, int64(pageSize))
+	if err != nil {
+		t.Fatalf("error mapping: %v", err)
+	}
+	if len(m) != pageSize+10 {
+		t.Errorf("len = %d, want %d", len(m), pageSize+10)
+	}
+	if m[0] != 'A' {
+		t.Errorf("m[0] = %q, want 'A'", m[0])
+	}
+	if err := m.Unmap(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := MapRegion(f, -1, RDONLY, 0, int64(4*pageSize)); err == nil {
+		t.Error("expected error for offset beyond end of file")
+	}
+}
+
+func TestAddrLen(t *testing.T) {
+	m, err := MapRegion(nil, 64, RDWR, ANON, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := m.Unmap(); err != nil {
+			t.Error(err)
+		}
+	}()
+	addr, n := m.addrLen()
+	if addr == 0 || n != 64 {
+		t.Fatalf("addrLen = (%#x, %d)", addr, n)
+	}
+	if err := m.Lock(); err != nil {
+		t.Fatalf("Lock: %v", err)
+	}
+	if err := m.Unlock(); err != nil {
+		t.Fatalf("Unlock: %v", err)
+	}
+	if err := m.Flush(); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+}

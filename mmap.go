@@ -17,7 +17,6 @@ package mmap
 import (
 	"errors"
 	"os"
-	"reflect"
 	"unsafe"
 )
 
@@ -66,7 +65,10 @@ func MapRegion(f *os.File, length int, prot, flags int, offset int64) (MMap, err
 			if err != nil {
 				return nil, err
 			}
-			length = int(fi.Size())
+			if offset > fi.Size() {
+				return nil, errors.New("offset is beyond end of file")
+			}
+			length = int(fi.Size() - offset)
 		}
 	} else {
 		if length <= 0 {
@@ -77,13 +79,8 @@ func MapRegion(f *os.File, length int, prot, flags int, offset int64) (MMap, err
 	return mmap(length, uintptr(prot), uintptr(flags), fd, offset)
 }
 
-func (m *MMap) header() *reflect.SliceHeader {
-	return (*reflect.SliceHeader)(unsafe.Pointer(m))
-}
-
-func (m *MMap) addrLen() (uintptr, uintptr) {
-	header := m.header()
-	return header.Data, uintptr(header.Len)
+func (m MMap) addrLen() (uintptr, uintptr) {
+	return uintptr(unsafe.Pointer(unsafe.SliceData(m))), uintptr(len(m))
 }
 
 // Lock keeps the mapped region in physical memory, ensuring that it will not be
@@ -94,7 +91,7 @@ func (m MMap) Lock() error {
 
 // Unlock reverses the effect of Lock, allowing the mapped region to potentially
 // be swapped out.
-// If m is already unlocked, aan error will result.
+// If m is already unlocked, an error will result.
 func (m MMap) Unlock() error {
 	return m.unlock()
 }

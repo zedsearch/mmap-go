@@ -8,6 +8,7 @@ import (
 	"errors"
 	"os"
 	"sync"
+	"unsafe"
 
 	"golang.org/x/sys/windows"
 )
@@ -78,13 +79,7 @@ func mmap(len int, prot, flags, hfile uintptr, off int64) ([]byte, error) {
 	}
 	handleLock.Unlock()
 
-	m := MMap{}
-	dh := m.header()
-	dh.Data = addr
-	dh.Len = len
-	dh.Cap = dh.Len
-
-	return m, nil
+	return unsafe.Slice((*byte)(unsafe.Add(nil, addr)), len), nil
 }
 
 func (m MMap) flush() error {
@@ -129,7 +124,7 @@ func (m MMap) unmap() error {
 		return err
 	}
 
-	addr := m.header().Data
+	addr, _ := m.addrLen()
 	// Lock the UnmapViewOfFile along with the handleMap deletion.
 	// As soon as we unmap the view, the OS is free to give the
 	// same addr to another new map. We don't want another goroutine
