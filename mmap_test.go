@@ -173,7 +173,8 @@ func TestAnonymousMapping(t *testing.T) {
 }
 
 func TestMapRegionWholeFileFromOffset(t *testing.T) {
-	pageSize := os.Getpagesize()
+	// Windows requires offsets aligned to the 64KB allocation granularity.
+	const pageSize = 65536
 	path := filepath.Join(t.TempDir(), "offset")
 	data := make([]byte, 2*pageSize+10)
 	data[pageSize] = 'A'
