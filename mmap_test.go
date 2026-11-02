@@ -184,7 +184,11 @@ func TestMapRegionWholeFileFromOffset(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 
 	m, err := MapRegion(f, -1, RDONLY, 0, int64(pageSize))
 	if err != nil {
@@ -210,7 +214,11 @@ func TestAddrLen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer m.Unmap()
+	defer func() {
+		if err := m.Unmap(); err != nil {
+			t.Error(err)
+		}
+	}()
 	addr, n := m.addrLen()
 	if addr == 0 || n != 64 {
 		t.Fatalf("addrLen = (%#x, %d)", addr, n)
