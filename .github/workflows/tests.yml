@@ -24,3 +24,22 @@ jobs:
       run: |
         go version
         go test -race ./...
+  cross-build:
+    strategy:
+      matrix:
+        target: [plan9/amd64, js/wasm, wasip1/wasm, aix/ppc64, freebsd/amd64, solaris/amd64, linux/arm64, windows/386]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version: stable
+    - name: Checkout code
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Build and vet
+      env:
+        TARGET: ${{ matrix.target }}
+      run: |
+        export GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}"
+        go build ./...
+        go vet ./...
